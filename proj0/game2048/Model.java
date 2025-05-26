@@ -107,16 +107,138 @@ public class Model extends Observable {
      *    and the trailing tile does not.
      * */
     public boolean tilt(Side side) {
-        boolean changed;
-        changed = false;
+        boolean changed = false;
+        board.setViewingPerspective(side);
+
+        int size = board.size();
+        for (int col = 0; col < size; col++) {
+            changed = changed || processEachCol(board, col);
+        }
+        board.setViewingPerspective(Side.NORTH);
 
         // TODO: Modify this.board (and perhaps this.score) to account
         // for the tilt to the Side SIDE. If the board changed, set the
         // changed local variable to true.
-
         checkGameOver();
         if (changed) {
             setChanged();
+        }
+
+        return changed;
+    }
+
+    private boolean processEachCol(Board b, int col) {
+        var size = b.size();
+        int count = 0;
+        var tiles = new Tile[size];
+        for (int row = size - 1; row >= 0; row--) {
+            var tile = b.tile(col, row);
+            if (tile != null && tile.value() != 0) {
+                tiles[count++] = tile;
+            }
+        }
+
+        boolean changed = false;
+        if (count == 1) {
+            if (tiles[0].row() != size - 1) {
+                b.move(col, size - 1, tiles[0]);
+                changed = true;
+            }
+        }
+        if (count == 2) {
+            var tile1 = tiles[0];
+            var tile2 = tiles[1];
+
+            if (tile1.value() != tile2.value()) {
+                if (tile1.row() != size - 1) {
+                    b.move(col, size - 1, tile1);
+                    changed = true;
+                }
+                if (tile2.row() != size - 2) {
+                    b.move(col, size - 2, tile2);
+                    changed = true;
+
+                }
+            } else {
+                if (tile1.row() != size - 1) {
+                    b.move(col, size - 1, tile1);
+                }
+                b.move(col, size - 1, tile2);
+                this.score += 2 * tile1.value();
+                changed = true;
+            }
+        }
+        if (count == 3) {
+            var tile1 = tiles[0];
+            var tile2 = tiles[1];
+            var tile3 = tiles[2];
+
+            if (tile1.value() == tile2.value()) {
+                if (tile1.row() != size - 1) {
+                    b.move(col, size - 1, tile1);
+                }
+                b.move(col, size - 1, tile2);
+                b.move(col, size - 2, tile3);
+                this.score += 2 * tile1.value();
+                changed = true;
+            } else {
+                if (tile2.value() == tile3.value()) {
+                    if (tile1.row() != size - 1) {
+                        b.move(col, size - 1, tile1);
+                    }
+                    if (tile2.row() != size - 2) {
+                        b.move(col, size - 2, tile2);
+                    }
+                    b.move(col, size - 2, tile3);
+                    this.score += 2 * tile2.value();
+                    changed = true;
+                } else {
+                    if (tile1.row() != size - 1) {
+                        b.move(col, size - 1, tile1);
+                        changed = true;
+                    }
+                    if (tile2.row() != size - 2) {
+                        b.move(col, size - 2, tile2);
+                        changed = true;
+                    }
+                    if (tile3.row() != size - 3) {
+                        b.move(col, size - 3, tile3);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if (count == 4) {
+            var tile1 = tiles[0];
+            var tile2 = tiles[1];
+            var tile3 = tiles[2];
+            var tile4 = tiles[3];
+            if (tile1.value() == tile2.value()) {
+                b.move(col, size - 1, tile2);
+                this.score += 2 * tile1.value();
+                changed = true;
+                if (tile3.value() == tile4.value()) {
+                    b.move(col, size - 2, tile3);
+                    b.move(col, size - 2, tile4);
+                    this.score += 2 * tile3.value();
+                } else {
+                    b.move(col, size - 2, tile3);
+                    b.move(col, size - 3, tile4);
+                }
+            } else {
+                if (tile2.value() == tile3.value()) {
+                    b.move(col, size - 2, tile3);
+                    b.move(col, size - 3, tile4);
+                    this.score += 2 * tile2.value();
+                    changed = true;
+                } else {
+                    if (tile3.value() == tile4.value()) {
+                        b.move(col, size - 3, tile4);
+                        this.score += 2 * tile3.value();
+                        changed = true;
+                    }
+                }
+            }
         }
         return changed;
     }
@@ -137,7 +259,14 @@ public class Model extends Observable {
      *  Empty spaces are stored as null.
      * */
     public static boolean emptySpaceExists(Board b) {
-        // TODO: Fill in this function.
+        int size = b.size();
+        for (int col = 0; col < size; col++) {
+            for (int row = 0; row < size; row++) {
+                if (b.tile(col, row) == null) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -147,7 +276,15 @@ public class Model extends Observable {
      * given a Tile object t, we get its value with t.value().
      */
     public static boolean maxTileExists(Board b) {
-        // TODO: Fill in this function.
+        int size = b.size();
+        for (int col = 0; col < size; col++) {
+            for (int row = 0; row < size; row++) {
+                Tile tile = b.tile(col, row);
+                if (tile != null && tile.value() == MAX_PIECE) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -158,10 +295,46 @@ public class Model extends Observable {
      * 2. There are two adjacent tiles with the same value.
      */
     public static boolean atLeastOneMoveExists(Board b) {
-        // TODO: Fill in this function.
+        return emptySpaceExists(b) || asLeastTwoAdjacentTilesWithSameValue(b);
+    }
+
+    private static boolean asLeastTwoAdjacentTilesWithSameValue(Board b) {
+        int size = b.size();
+        for (int col = 0; col < size; col++) {
+            for (int row = 0; row < size; row++) {
+                if (adjacentTilesHasSameValue(b, col, row)) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
+    private static boolean adjacentTilesHasSameValue(Board b, int col, int row) {
+        var tile = b.tile(col, row);
+        if (tile == null) {
+            return false;
+        }
+
+        var size = b.size();
+        if (validIndex(size, col, row + 1) && b.tile(col, row + 1) != null && tile.value() == b.tile(col, row + 1).value()) {
+            return true;
+        }
+        if (validIndex(size, col, row - 1) && b.tile(col, row - 1) != null && tile.value() == b.tile(col, row - 1).value()) {
+            return true;
+        }
+        if (validIndex(size, col + 1, row) && b.tile(col + 1, row) != null && tile.value() == b.tile(col + 1, row).value()) {
+            return true;
+        }
+        if (validIndex(size, col - 1, row) && b.tile(col - 1, row) != null && tile.value() == b.tile(col - 1, row).value()) {
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean validIndex(int size, int col, int row) {
+        return 0 <= col && col < size && 0 <= row && row < size;
+    }
 
     @Override
      /** Returns the model as a string, used for debugging. */
