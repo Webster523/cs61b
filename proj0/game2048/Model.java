@@ -1,5 +1,6 @@
 package game2048;
 
+import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.Observable;
 
@@ -107,18 +108,39 @@ public class Model extends Observable {
      *    and the trailing tile does not.
      * */
     public boolean tilt(Side side) {
-        boolean changed = false;
-        board.setViewingPerspective(side);
-
-        int size = board.size();
-        for (int col = 0; col < size; col++) {
-            changed = changed || processEachCol(board, col);
-        }
-        board.setViewingPerspective(Side.NORTH);
-
         // TODO: Modify this.board (and perhaps this.score) to account
         // for the tilt to the Side SIDE. If the board changed, set the
         // changed local variable to true.
+        boolean changed = false;
+        board.setViewingPerspective(side);
+        for (int col = 0; col <= board.size() - 1; col++) {
+            changed = pushUp(col) || changed;
+        }
+
+        for (int col = 0; col <= board.size() - 1; col++) {
+            for (int targetRow = board.size() - 1; targetRow > 0; targetRow--) {
+                Tile next = null;
+                for (int currentRow = targetRow - 1; currentRow >= 0; currentRow--) {
+                    next = board.tile(col, currentRow);
+                    if (next != null) {
+                        break;
+                    }
+                }
+
+                if (next != null && board.tile(col, targetRow) == null) {
+                    board.move(col, targetRow, next);
+                    changed = true;
+                } else if (next != null && next.value() == board.tile(col, targetRow).value()) {
+                    board.move(col, targetRow, next);
+                    this.score += board.tile(col, targetRow).value();
+                    changed = true;
+                    pushUp(col);
+                }
+            }
+        }
+
+        board.setViewingPerspective(Side.NORTH);
+
         checkGameOver();
         if (changed) {
             setChanged();
@@ -127,116 +149,19 @@ public class Model extends Observable {
         return changed;
     }
 
-    private boolean processEachCol(Board b, int col) {
-        var size = b.size();
-        int count = 0;
-        var tiles = new Tile[size];
-        for (int row = size - 1; row >= 0; row--) {
-            var tile = b.tile(col, row);
-            if (tile != null && tile.value() != 0) {
-                tiles[count++] = tile;
-            }
-        }
-
+    private boolean pushUp(int col) {
         boolean changed = false;
-        if (count == 1) {
-            if (tiles[0].row() != size - 1) {
-                b.move(col, size - 1, tiles[0]);
-                changed = true;
+        for (int targetRow = board.size() - 1; targetRow > 0; targetRow--) {
+            if (board.tile(col, targetRow) != null) {
+                continue;
             }
-        }
-        if (count == 2) {
-            var tile1 = tiles[0];
-            var tile2 = tiles[1];
 
-            if (tile1.value() != tile2.value()) {
-                if (tile1.row() != size - 1) {
-                    b.move(col, size - 1, tile1);
+            for (int currentRow = targetRow - 1; currentRow >= 0; currentRow--) {
+                var tile = board.tile(col, currentRow);
+                if (tile != null) {
+                    board.move(col, targetRow, tile);
                     changed = true;
-                }
-                if (tile2.row() != size - 2) {
-                    b.move(col, size - 2, tile2);
-                    changed = true;
-
-                }
-            } else {
-                if (tile1.row() != size - 1) {
-                    b.move(col, size - 1, tile1);
-                }
-                b.move(col, size - 1, tile2);
-                this.score += 2 * tile1.value();
-                changed = true;
-            }
-        }
-        if (count == 3) {
-            var tile1 = tiles[0];
-            var tile2 = tiles[1];
-            var tile3 = tiles[2];
-
-            if (tile1.value() == tile2.value()) {
-                if (tile1.row() != size - 1) {
-                    b.move(col, size - 1, tile1);
-                }
-                b.move(col, size - 1, tile2);
-                b.move(col, size - 2, tile3);
-                this.score += 2 * tile1.value();
-                changed = true;
-            } else {
-                if (tile2.value() == tile3.value()) {
-                    if (tile1.row() != size - 1) {
-                        b.move(col, size - 1, tile1);
-                    }
-                    if (tile2.row() != size - 2) {
-                        b.move(col, size - 2, tile2);
-                    }
-                    b.move(col, size - 2, tile3);
-                    this.score += 2 * tile2.value();
-                    changed = true;
-                } else {
-                    if (tile1.row() != size - 1) {
-                        b.move(col, size - 1, tile1);
-                        changed = true;
-                    }
-                    if (tile2.row() != size - 2) {
-                        b.move(col, size - 2, tile2);
-                        changed = true;
-                    }
-                    if (tile3.row() != size - 3) {
-                        b.move(col, size - 3, tile3);
-                        changed = true;
-                    }
-                }
-            }
-        }
-        if (count == 4) {
-            var tile1 = tiles[0];
-            var tile2 = tiles[1];
-            var tile3 = tiles[2];
-            var tile4 = tiles[3];
-            if (tile1.value() == tile2.value()) {
-                b.move(col, size - 1, tile2);
-                this.score += 2 * tile1.value();
-                changed = true;
-                if (tile3.value() == tile4.value()) {
-                    b.move(col, size - 2, tile3);
-                    b.move(col, size - 2, tile4);
-                    this.score += 2 * tile3.value();
-                } else {
-                    b.move(col, size - 2, tile3);
-                    b.move(col, size - 3, tile4);
-                }
-            } else {
-                if (tile2.value() == tile3.value()) {
-                    b.move(col, size - 2, tile3);
-                    b.move(col, size - 3, tile4);
-                    this.score += 2 * tile2.value();
-                    changed = true;
-                } else {
-                    if (tile3.value() == tile4.value()) {
-                        b.move(col, size - 3, tile4);
-                        this.score += 2 * tile3.value();
-                        changed = true;
-                    }
+                    break;
                 }
             }
         }
